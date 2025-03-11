@@ -42,6 +42,7 @@
 #include "definitions.h"                // SYS function prototypes
 
 /* RTC Time period match values for input clock of 1 KHz */
+#define PERIOD_100MS                            102
 #define PERIOD_500MS                            512
 #define PERIOD_1S                               1024
 #define PERIOD_2S                               2048
@@ -153,7 +154,7 @@ static void printGlobalAddresses(void)
 
 // return failure count. A return value of 0 means everything passed.
 static int testResult(int testNum, 
-                      uint32_t r0quotientAddr, 
+                      uint32_t r0returnedValue, 
                       int32_t *passCount,
                       int32_t *failCount)
 {
@@ -170,17 +171,20 @@ static int testResult(int testNum,
     char *addrCheck = "OOPS";
     // static char *s2 = "OOPS";
     // static bool firstTime = true;
+    uint32_t expectedR0 = 0;
     uint32_t myErr = 0;
     uint32_t myDiv = 0;
     uint32_t myMod = 0;
     if ((tc[testNum][0] == 0) || (tc[testNum][1] == 0))
     {
         myErr = 1;
+        expectedR0 = (uint32_t)&quotient;
     }
     else
     {
         myDiv = tc[testNum][0] / tc[testNum][1];
         myMod = tc[testNum][0] % tc[testNum][1];
+        expectedR0 = myDiv;
     }
 
     // Check we_have_a_problem
@@ -195,16 +199,34 @@ static int testResult(int testNum,
         errCheck = fail;
     }
 
-    // Check return of addr in r0
-    if((uintptr_t)&quotient == (uintptr_t)r0quotientAddr)
+    if(myErr == 1) // for error case, check if addr was returned
     {
-        *passCount += 1;
-        addrCheck = pass;
+        // Check return of addr in r0
+        if((uintptr_t)&quotient == (uintptr_t)r0returnedValue)
+        {
+            *passCount += 1;
+            addrCheck = pass;
+        }
+        else
+        {
+            *failCount += 1;
+            addrCheck = fail;
+        }        
     }
-    else
+    else // there was no error, check that return value contained the quotient
     {
-        *failCount += 1;
-        addrCheck = fail;
+        // Check that returned value was set to the quotient value
+        if(expectedR0 == r0returnedValue)
+        {
+            *passCount += 1;
+            addrCheck = pass;
+        }
+        else
+        {
+            *failCount += 1;
+            addrCheck = fail;
+        }        
+        
     }
 
     // Check mem value of dividend
@@ -267,13 +289,14 @@ static int testResult(int testNum,
             "divisor mem value pass/fail:   %s\r\n"
             "quotient mem value pass/fail:  %s\r\n"
             "modulus mem value pass/fail:   %s\r\n"
-            "debug values            expected        actual\r\n"
-            "dividend:...........%11lu   %11lu\r\n"
-            "divisor:............%11lu   %11lu\r\n"
-            "quotient:...........%11lu   %11lu\r\n"
-            "mod:................%11lu   %11lu\r\n"
-            "we_have_a_problem:..%11lu   %11lu\r\n"
-            "quotient addr check: 0x%08" PRIXPTR "    0x%08" PRIXPTR "\r\n"
+            "debug values                  expected        actual\r\n"
+            "dividend:.................%11lu   %11lu\r\n"
+            "divisor:..................%11lu   %11lu\r\n"
+            "quotient:.................%11lu   %11lu\r\n"
+            "mod:......................%11lu   %11lu\r\n"
+            "we_have_a_problem:........%11lu   %11lu\r\n"
+            "expected R0 value (dec):..%11lu   %11lu\r\n"
+            "expected R0 value (hex):.. 0x%08" PRIXPTR "    0x%08" PRIXPTR "\r\n"
             "\r\n",
             testNum,
             tc[testNum][0],
@@ -284,7 +307,8 @@ static int testResult(int testNum,
             myDiv, quotient,
             myMod, mod,
             myErr, we_have_a_problem,
-            (uintptr_t)(&quotient), (uintptr_t) r0quotientAddr
+            expectedR0, r0returnedValue,
+            (uintptr_t)(expectedR0), (uintptr_t) r0returnedValue
             );
 
 #if USING_HW 
@@ -314,7 +338,7 @@ int main ( void )
     SYS_Initialize ( NULL );
     DMAC_ChannelCallbackRegister(DMAC_CHANNEL_0, usartDmaChannelHandler, 0);
     RTC_Timer32CallbackRegister(rtcEventHandler, 0);
-    RTC_Timer32Compare0Set(PERIOD_500MS);
+    RTC_Timer32Compare0Set(PERIOD_100MS);
     RTC_Timer32CounterSet(0);
     RTC_Timer32Start();
 #else // using the simulator
