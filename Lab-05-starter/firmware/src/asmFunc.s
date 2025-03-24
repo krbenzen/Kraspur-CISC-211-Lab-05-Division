@@ -14,7 +14,7 @@
 .type nameStr,%gnu_unique_object
     
 /*** STUDENTS: Change the next line to your name!  **/
-nameStr: .asciz "Inigo Montoya"  
+nameStr: .asciz "Benzen Raspur"  
 
 .align   /* realign so that next mem allocations are on word boundaries */
  
@@ -80,8 +80,62 @@ asmFunc:
      * Use it to test the C test code */
     
     /*** STUDENTS: Place your code BELOW this line!!! **************/
+    /*Copying the inputs from register to memory*/
+    ldr   r4, =dividend   
+    str   r0, [r4]        /*dividend = r0*/
+ldr   r4,=divisor        
+    str   r1, [r4]        /*divisor = r1*/
 
-    
+   
+    /*Initialize all of them to be = 0*/
+    ldr   r4, =quotient
+    mov   r5, #0
+    str   r5, [r4]            
+    ldr   r4, =mod
+    str   r5, [r4]            
+    ldr   r4, =we_have_a_problem
+    str   r5, [r4]            
+
+   
+    /*Check for if r0 = 0 OR r1 = 0  errors*/
+    cmp   r0, #0          /*if equal to 1*/
+    beq   is_error
+    cmp   r1, #0          /*if equal to 0*/
+    beq   is_error
+
+   
+    /*Repeated subtraction*/
+    mov   r2, #0              
+    mov   r3, r0              
+
+divide_loop:
+    cmp   r3, r1          /*compare remainder divisor*/ 
+    blo   finished           
+    sub   r3, r3, r1          
+    add   r2, r2, #1      /*quotient++*/ 
+    b     divide_loop
+
+finished:
+ 
+    /*Store results and sets r0. Branch to done*/
+    ldr   r4, =quotient
+    str   r2, [r4]            @ quotient in memory
+    ldr   r4, =mod
+    str   r3, [r4]            @ mod in memory
+    /*we_have_a_problem should stay 0*/
+    mov   r0, r2              @ function return value = quotient
+    b     done
+
+is_error:
+  
+    /* Error we_have_a_problem = 1, r0 =quotient*/
+
+    ldr   r4, =we_have_a_problem
+    mov   r5, #1
+    str   r5, [r4]          
+    ldr   r0, = quotient     
+    b     done
+
     /*** STUDENTS: Place your code ABOVE this line!!! **************/
 
 done:    
